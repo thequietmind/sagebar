@@ -27,17 +27,26 @@ binary_dir="$(swift build "${swift_flags[@]}" --show-bin-path)"
 
 app="$project_dir/build/SageBar.app"
 rm -rf "$app"
-mkdir -p "$app/Contents/MacOS" "$app/Contents/Resources" build/SageBar.iconset
+mkdir -p "$app/Contents/MacOS" "$app/Contents/Resources"
 cp "$binary_dir/SageBar" "$app/Contents/MacOS/SageBar"
 ditto "$binary_dir/SageBar_SageBar.bundle" "$app/Contents/Resources/SageBar_SageBar.bundle"
 
-swift Scripts/Icon.swift build/icon.png
+# The app icon comes from one 1024 × 1024 PNG; replace Assets/AppIcon.png to change it.
+icon="Assets/AppIcon.png"
+icon_size="$(sips -g pixelWidth -g pixelHeight "$icon" | awk '/pixel/ {printf "%s ", $2}')"
+if [[ "$icon_size" != "1024 1024 " ]]; then
+    printf '%s must be 1024 × 1024 pixels, not %s\n' "$icon" "$icon_size" >&2
+    exit 1
+fi
+iconset="build/SageBar.iconset"
+rm -rf "$iconset"
+mkdir -p "$iconset"
 for dimension in 16 32 128 256 512; do
-    sips -z "$dimension" "$dimension" build/icon.png --out "build/SageBar.iconset/icon_${dimension}x${dimension}.png" >/dev/null
+    sips -z "$dimension" "$dimension" "$icon" --out "$iconset/icon_${dimension}x${dimension}.png" >/dev/null
     doubled=$((dimension * 2))
-    sips -z "$doubled" "$doubled" build/icon.png --out "build/SageBar.iconset/icon_${dimension}x${dimension}@2x.png" >/dev/null
+    sips -z "$doubled" "$doubled" "$icon" --out "$iconset/icon_${dimension}x${dimension}@2x.png" >/dev/null
 done
-iconutil -c icns build/SageBar.iconset -o "$app/Contents/Resources/SageBar.icns"
+iconutil -c icns "$iconset" -o "$app/Contents/Resources/SageBar.icns"
 
 # The bundle identifier also names SageBar's Keychain items; keep it in sync with AppInfo.identifier.
 cat > "$app/Contents/Info.plist" <<PLIST

@@ -131,6 +131,8 @@ build/SageBar.app/Contents/MacOS/SageBar --render-screenshots "$PWD/build/screen
 `--demo` uses synthetic readings and makes no provider requests; settings changed in demo mode last until
 it quits, and saved sessions and login items are left alone. `--preview` opens the dashboard window.
 
+The app icon is built from `Assets/AppIcon.png`, a 1024 × 1024 PNG; replace it and rebuild to change the icon.
+
 `--render-screenshots` writes the dropdown, Settings window, and every menu bar style in light and dark from
 demo readings, at 2× (menu bar labels at 3×), for this README and the website. Settings draws as an inactive
 window when macOS doesn’t let SageBar take focus. Copy `popup-light.png` and `popup-dark.png` to
