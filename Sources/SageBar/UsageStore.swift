@@ -25,24 +25,25 @@ final class UsageStore: ObservableObject {
     @Published var notice: String?
     @Published private(set) var enabledProviders: Set<Provider>
     @Published var showResetCountdown: Bool {
-        didSet { defaults.set(showResetCountdown, forKey: "showResetCountdown") }
+        didSet { persist(showResetCountdown, "showResetCountdown") }
     }
     @Published var refreshMinutes: Int {
-        didSet { defaults.set(refreshMinutes, forKey: "refreshMinutes"); scheduleRefresh() }
+        didSet { persist(refreshMinutes, "refreshMinutes"); scheduleRefresh() }
     }
     @Published var showRemaining: Bool {
-        didSet { defaults.set(showRemaining, forKey: "showRemaining") }
+        didSet { persist(showRemaining, "showRemaining") }
     }
     @Published var menuBarStyle: MenuBarStyle {
-        didSet { defaults.set(menuBarStyle.rawValue, forKey: "menuBarStyle") }
+        didSet { persist(menuBarStyle.rawValue, "menuBarStyle") }
     }
     @Published var showFable: Bool {
-        didSet { defaults.set(showFable, forKey: "showFable") }
+        didSet { persist(showFable, "showFable") }
     }
     @Published var colorBars: Bool {
-        didSet { defaults.set(colorBars, forKey: "colorBars") }
+        didSet { persist(colorBars, "colorBars") }
     }
     @Published var launchAtLogin = SMAppService.mainApp.status == .enabled
+    /// Synthetic readings for previews and screenshots; settings changes stay in memory, and sessions and login items are untouched.
     let isDemo: Bool
     private let defaults = UserDefaults.standard
     private var timer: Timer?
@@ -107,7 +108,7 @@ final class UsageStore: ObservableObject {
             generations[provider, default: 0] += 1
             states[provider]?.refreshing = false
         }
-        defaults.set(visibleProviders.map(\.rawValue), forKey: "enabledProviders")
+        persist(visibleProviders.map(\.rawValue), "enabledProviders")
     }
 
     func refreshAll() { for provider in visibleProviders { refresh(provider) } }
@@ -160,6 +161,7 @@ final class UsageStore: ObservableObject {
     }
 
     func disconnect(_ provider: Provider) {
+        guard !isDemo else { return }
         do {
             try SessionVault.delete(provider)
             generations[provider, default: 0] += 1
@@ -169,6 +171,7 @@ final class UsageStore: ObservableObject {
     }
 
     func toggleLogin(_ enabled: Bool) {
+        guard !isDemo else { return }
         do {
             if enabled { try SMAppService.mainApp.register() } else { try SMAppService.mainApp.unregister() }
             launchAtLogin = SMAppService.mainApp.status == .enabled
@@ -196,6 +199,11 @@ final class UsageStore: ObservableObject {
         guard state.error == nil, let snapshot = state.snapshot,
               Date().timeIntervalSince(snapshot.fetchedAt) < Double(refreshMinutes * 60 + 60) else { return nil }
         return limits(for: provider).first
+    }
+
+    private func persist(_ value: Any, _ key: String) {
+        guard !isDemo else { return }
+        defaults.set(value, forKey: key)
     }
 
     private func scheduleRefresh() {

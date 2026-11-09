@@ -6,12 +6,8 @@ import SwiftUI
 @main
 struct SageBarApplication {
     @MainActor static func main() {
-        if let path = argument(after: "--render-preview") {
-            render(DashboardView(store: UsageStore(demo: true), openSettings: {}, popOut: {}), to: path)
-            return
-        }
-        if let path = argument(after: "--render-menu-bar") {
-            render(MenuBarPreview(store: UsageStore(demo: true)), to: path)
+        if let path = argument(after: "--render-screenshots") {
+            Screenshots.render(to: URL(fileURLWithPath: path, isDirectory: true))
             return
         }
         if CommandLine.arguments.contains("--check-codex") {
@@ -33,22 +29,6 @@ struct SageBarApplication {
     private static func argument(after flag: String) -> String? {
         guard let index = CommandLine.arguments.firstIndex(of: flag), CommandLine.arguments.count > index + 1 else { return nil }
         return CommandLine.arguments[index + 1]
-    }
-
-    @MainActor private static func render(_ content: some View, to path: String) {
-        let application = NSApplication.shared
-        application.setActivationPolicy(.accessory)
-        let dark = CommandLine.arguments.contains("--dark")
-        application.appearance = NSAppearance(named: dark ? .darkAqua : .aqua)
-        let renderer = ImageRenderer(content: content.environment(\.colorScheme, dark ? .dark : .light))
-        renderer.scale = 2
-        guard let image = renderer.nsImage, let tiff = image.tiffRepresentation,
-              let bitmap = NSBitmapImageRep(data: tiff), let png = bitmap.representation(using: .png, properties: [:]) else {
-            fputs("Couldn't render preview.\n", stderr); exit(1)
-        }
-        do { try png.write(to: URL(fileURLWithPath: path)) }
-        catch { fputs("Couldn't save preview.\n", stderr); exit(1) }
-        print("Rendered \(bitmap.pixelsWide) × \(bitmap.pixelsHigh) preview")
     }
 }
 

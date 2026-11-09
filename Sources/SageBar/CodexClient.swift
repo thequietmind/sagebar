@@ -32,7 +32,7 @@ enum CodexClient {
             process.waitUntilExit()
             try? output.fileHandleForReading.close()
         }
-        try send(#"{"id":1,"method":"initialize","params":{"clientInfo":{"name":"sagebar","title":"SageBar","version":"0.1.0"}}}"#, to: input)
+        try send(#"{"id":1,"method":"initialize","params":{"clientInfo":{"name":"sagebar","title":"SageBar","version":"\#(AppInfo.version)"}}}"#, to: input)
         var buffer = Data()
         var initialized = false
         var accountLabel: String?

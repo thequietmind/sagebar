@@ -39,12 +39,9 @@ struct DashboardView: View {
                     .font(.system(size: 13, weight: .semibold))
                     .foregroundStyle(sage)
                 Text("SageBar").font(.system(size: 14, weight: .semibold))
-                if store.isDemo {
-                    Text("Preview").font(.system(size: 11)).foregroundStyle(.secondary)
-                }
                 Spacer()
                 Button(action: store.refreshAll) { Image(systemName: "arrow.clockwise") }
-                    .disabled(store.states.values.contains { $0.refreshing } || store.isDemo)
+                    .disabled(store.states.values.contains { $0.refreshing })
                     .help("Refresh enabled providers").accessibilityLabel("Refresh usage")
                 if let popOut {
                     Button(action: popOut) { Image(systemName: "macwindow.on.rectangle") }
@@ -247,78 +244,6 @@ private struct Meter: View {
     }
 }
 
-/// Development sheet comparing each menu bar style in light and dark, from demo readings.
-struct MenuBarPreview: View {
-    private struct Variant {
-        let title: String
-        let style: MenuBarStyle
-        let countdown: Bool
-        let colored: Bool
-    }
-
-    let store: UsageStore
-    private let variants = [
-        Variant(title: "Percentages", style: .percentage, countdown: false, colored: false),
-        Variant(title: "Percentages + countdowns", style: .percentage, countdown: true, colored: false),
-        Variant(title: "Bars", style: .bar, countdown: false, colored: false),
-        Variant(title: "Bars + countdowns", style: .bar, countdown: true, colored: false),
-        Variant(title: "Colored bars", style: .bar, countdown: false, colored: true),
-        Variant(title: "Colored bars + countdowns", style: .bar, countdown: true, colored: true)
-    ]
-
-    var body: some View {
-        HStack(spacing: 0) {
-            column(dark: false)
-            column(dark: true)
-        }
-    }
-
-    private func column(dark: Bool) -> some View {
-        VStack(alignment: .leading, spacing: 12) {
-            ForEach(variants, id: \.title) { variant in
-                VStack(alignment: .leading, spacing: 5) {
-                    Text(variant.title).font(.system(size: 10)).foregroundStyle(.secondary)
-                    label(variant, dark: dark)
-                        .padding(.horizontal, 8).frame(height: 24)
-                        .background(Color(white: dark ? 0.2 : 0.92), in: RoundedRectangle(cornerRadius: 5))
-                }
-            }
-        }
-        .padding(16)
-        .frame(minWidth: 260, alignment: .leading)
-        .background(Color(white: dark ? 0.1 : 1))
-        .environment(\.colorScheme, dark ? .dark : .light)
-    }
-
-    @ViewBuilder
-    private func label(_ variant: Variant, dark: Bool) -> some View {
-        let image = MenuBarLabel.image(readings: store.menuBarReadings(countdown: variant.countdown),
-                                       style: variant.style, colored: variant.colored)
-        if image.isTemplate {
-            Image(nsImage: image).renderingMode(.template).foregroundStyle(.primary)
-        } else {
-            Image(nsImage: Self.rasterized(image, dark: dark))
-        }
-    }
-
-    /// Draws a self-colored label as the menu bar would, resolving its dynamic colors for the given appearance.
-    private static func rasterized(_ image: NSImage, dark: Bool) -> NSImage {
-        guard let appearance = NSAppearance(named: dark ? .darkAqua : .aqua),
-              let bitmap = NSBitmapImageRep(bitmapDataPlanes: nil, pixelsWide: Int(ceil(image.size.width * 2)),
-                                            pixelsHigh: Int(ceil(image.size.height * 2)), bitsPerSample: 8,
-                                            samplesPerPixel: 4, hasAlpha: true, isPlanar: false,
-                                            colorSpaceName: .deviceRGB, bytesPerRow: 0, bitsPerPixel: 0) else { return image }
-        bitmap.size = image.size
-        NSGraphicsContext.saveGraphicsState()
-        NSGraphicsContext.current = NSGraphicsContext(bitmapImageRep: bitmap)
-        appearance.performAsCurrentDrawingAppearance { image.draw(in: NSRect(origin: .zero, size: image.size)) }
-        NSGraphicsContext.restoreGraphicsState()
-        let output = NSImage(size: image.size)
-        output.addRepresentation(bitmap)
-        return output
-    }
-}
-
 /// Paste, save, and disconnect rows for a provider connected by website session.
 private struct SessionFields: View {
     let provider: Provider
@@ -418,12 +343,11 @@ struct PreferencesView: View {
                 Section { Label(notice, systemImage: "exclamationmark.circle").foregroundStyle(.orange) }
             }
             Section {
-                Text("SageBar 0.1.0 · Built on your Mac\nConnections go directly to the providers. No analytics or SageBar account.")
+                Text("SageBar \(AppInfo.version)\nConnections go directly to the providers. No analytics or SageBar account.")
                     .font(.caption).foregroundStyle(.secondary)
             }
         }
         .formStyle(.grouped)
         .frame(width: 470, height: 640)
-        .disabled(store.isDemo)
     }
 }

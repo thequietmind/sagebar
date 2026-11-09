@@ -2,11 +2,11 @@ import Foundation
 import SageBarCore
 import Security
 
-/// Pasted website sessions in Keychain, one item per provider (`local.SageBar.<provider>`).
+/// Pasted website sessions in Keychain, one item per provider (`com.quietmindcreative.SageBar.<provider>`).
 enum SessionVault {
     private static func query(_ provider: Provider) -> [String: Any] {
         [kSecClass as String: kSecClassGenericPassword,
-         kSecAttrService as String: "local.SageBar.\(provider.rawValue)",
+         kSecAttrService as String: "\(AppInfo.identifier).\(provider.rawValue)",
          kSecAttrAccount as String: "session"]
     }
 

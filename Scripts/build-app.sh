@@ -1,16 +1,35 @@
 #!/bin/bash
+# Builds build/SageBar.app. Optional environment:
+#   SAGEBAR_SIGN_IDENTITY  codesigning identity; ad-hoc ("-") when unset
+#   SAGEBAR_UNIVERSAL=1    build for Apple silicon and Intel instead of this Mac only
+#   SAGEBAR_BUILD_NUMBER   CFBundleVersion; the git commit count when unset
 set -euo pipefail
 
-PROJECT_DIR="$(cd "$(dirname "$0")/.." && pwd)"
-cd "$PROJECT_DIR"
-export CLANG_MODULE_CACHE_PATH="$PROJECT_DIR/.build/ModuleCache"
+project_dir="$(cd "$(dirname "$0")/.." && pwd)"
+cd "$project_dir"
+export CLANG_MODULE_CACHE_PATH="$project_dir/.build/ModuleCache"
 export SWIFTPM_MODULECACHE_OVERRIDE="$CLANG_MODULE_CACHE_PATH"
-swift build -c release --disable-sandbox --cache-path .build/cache
-SAGEBAR_BINARY_DIR="$(swift build -c release --disable-sandbox --cache-path .build/cache --show-bin-path)"
-SAGEBAR_APP="$PROJECT_DIR/build/SageBar.app"
-mkdir -p "$SAGEBAR_APP/Contents/MacOS" "$SAGEBAR_APP/Contents/Resources" build/SageBar.iconset
-cp "$SAGEBAR_BINARY_DIR/SageBar" "$SAGEBAR_APP/Contents/MacOS/SageBar"
-ditto "$SAGEBAR_BINARY_DIR/SageBar_SageBar.bundle" "$SAGEBAR_APP/Contents/Resources/SageBar_SageBar.bundle"
+
+version="$(<VERSION)"
+if [[ ! "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+    printf 'VERSION must look like 1.2.3, not %s\n' "$version" >&2
+    exit 1
+fi
+build_number="${SAGEBAR_BUILD_NUMBER:-$(git rev-list --count HEAD 2>/dev/null || echo 1)}"
+identity="${SAGEBAR_SIGN_IDENTITY:--}"
+
+swift_flags=(-c release --disable-sandbox --cache-path .build/cache)
+if [[ "${SAGEBAR_UNIVERSAL:-}" == 1 ]]; then
+    swift_flags+=(--arch arm64 --arch x86_64)
+fi
+swift build "${swift_flags[@]}"
+binary_dir="$(swift build "${swift_flags[@]}" --show-bin-path)"
+
+app="$project_dir/build/SageBar.app"
+rm -rf "$app"
+mkdir -p "$app/Contents/MacOS" "$app/Contents/Resources" build/SageBar.iconset
+cp "$binary_dir/SageBar" "$app/Contents/MacOS/SageBar"
+ditto "$binary_dir/SageBar_SageBar.bundle" "$app/Contents/Resources/SageBar_SageBar.bundle"
 
 swift Scripts/Icon.swift build/icon.png
 for dimension in 16 32 128 256 512; do
@@ -18,26 +37,33 @@ for dimension in 16 32 128 256 512; do
     doubled=$((dimension * 2))
     sips -z "$doubled" "$doubled" build/icon.png --out "build/SageBar.iconset/icon_${dimension}x${dimension}@2x.png" >/dev/null
 done
-iconutil -c icns build/SageBar.iconset -o "$SAGEBAR_APP/Contents/Resources/SageBar.icns"
+iconutil -c icns build/SageBar.iconset -o "$app/Contents/Resources/SageBar.icns"
 
-cat > "$SAGEBAR_APP/Contents/Info.plist" <<'PLIST'
+# The bundle identifier also names SageBar's Keychain items; keep it in sync with AppInfo.identifier.
+cat > "$app/Contents/Info.plist" <<PLIST
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0"><dict>
-<key>CFBundleIdentifier</key><string>local.SageBar</string>
+<key>CFBundleIdentifier</key><string>com.quietmindcreative.SageBar</string>
 <key>CFBundleName</key><string>SageBar</string>
 <key>CFBundleDisplayName</key><string>SageBar</string>
 <key>CFBundleExecutable</key><string>SageBar</string>
 <key>CFBundleIconFile</key><string>SageBar</string>
 <key>CFBundlePackageType</key><string>APPL</string>
-<key>CFBundleShortVersionString</key><string>0.1.0</string>
-<key>CFBundleVersion</key><string>1</string>
+<key>CFBundleShortVersionString</key><string>${version}</string>
+<key>CFBundleVersion</key><string>${build_number}</string>
+<key>LSApplicationCategoryType</key><string>public.app-category.developer-tools</string>
 <key>LSMinimumSystemVersion</key><string>14.0</string>
 <key>LSUIElement</key><true/>
 <key>NSHighResolutionCapable</key><true/>
 </dict></plist>
 PLIST
 
-codesign --force --sign "${SAGEBAR_SIGN_IDENTITY:--}" "$SAGEBAR_APP"
-codesign --verify --deep --strict "$SAGEBAR_APP"
-printf 'Built %s\n' "$SAGEBAR_APP"
+# Hardened runtime always; notarization also needs a secure timestamp, which only Developer ID builds request.
+sign_flags=(--force --options runtime --sign "$identity")
+if [[ "$identity" == "Developer ID Application"* ]]; then
+    sign_flags+=(--timestamp)
+fi
+codesign "${sign_flags[@]}" "$app"
+codesign --verify --deep --strict "$app"
+printf 'Built %s %s (%s)\n' "$app" "$version" "$build_number"
