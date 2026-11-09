@@ -1,5 +1,7 @@
 <div align="center">
 
+<img src=".github/assets/logo.svg" alt="SageBar" width="80">
+
 # SageBar
 
 **Claude, Codex, and Grok usage in your Mac’s menu bar.**

@@ -4,6 +4,12 @@ import SwiftUI
 
 private let sage = Color(red: 0.40, green: 0.56, blue: 0.44)
 
+/// The dropdown header's glyph. wand.and.sparkles needs macOS 15, so macOS 14 shows the older wand.and.stars.
+private var headerSymbol: String {
+    if #available(macOS 15, *) { return "wand.and.sparkles" }
+    return "wand.and.stars"
+}
+
 extension Provider {
     /// Grok's Usage view is a tab inside grok.com's Settings dialog with no address of its own.
     var usageURL: URL {
@@ -35,7 +41,7 @@ struct DashboardView: View {
     var body: some View {
         VStack(spacing: 12) {
             HStack(spacing: 6) {
-                Image(systemName: "leaf")
+                Image(systemName: headerSymbol)
                     .font(.system(size: 13, weight: .semibold))
                     .foregroundStyle(sage)
                 Text("SageBar").font(.system(size: 14, weight: .semibold))
