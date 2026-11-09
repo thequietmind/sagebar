@@ -18,8 +18,11 @@ archive="build/SageBar-$version.zip"
 
 SAGEBAR_SIGN_IDENTITY="$identity" SAGEBAR_UNIVERSAL=1 bash Scripts/build-app.sh
 
+# Leave out extended attributes such as com.apple.provenance: ditto would store them as ._ files,
+# which unzip and other non-Apple tools extract into the bundle, breaking its signature.
+zip_flags=(-c -k --norsrc --noextattr --keepParent)
 rm -f "$archive"
-ditto -c -k --keepParent "$app" "$archive"
+ditto "${zip_flags[@]}" "$app" "$archive"
 printf 'Submitting %s for notarization...\n' "$archive"
 result="$(xcrun notarytool submit "$archive" --keychain-profile "$profile" --wait --output-format json)"
 status="$(plutil -extract status raw -o - - <<< "$result")"
@@ -34,6 +37,6 @@ fi
 xcrun stapler staple "$app"
 spctl --assess --type execute --verbose=2 "$app"
 rm "$archive"
-ditto -c -k --keepParent "$app" "$archive"
+ditto "${zip_flags[@]}" "$app" "$archive"
 shasum -a 256 "$archive"
 printf 'Ready to upload: %s\n' "$archive"
